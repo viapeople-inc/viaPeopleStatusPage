@@ -2,67 +2,151 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>viaPeople System Status</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Performance System Status</title>
 <style>
-body { font-family: Arial; margin: 0; background: #f7f7f7; }
-.header { background: #0d6efd; color: white; padding: 20px; text-align: center; }
-.status-box { margin: 20px auto; max-width: 700px; background: white; padding: 20px; border-radius: 8px; }
-.indicator { font-size: 22px; font-weight: bold; margin-bottom: 10px; }
-.green { color: #28a745; }
-.yellow { color: #ffc107; }
-.red { color: #dc3545; }
-.service { border-top: 1px solid #eee; padding: 10px 0; }
-.last-updated { font-size: 12px; color: #666; margin-top: 20px; }
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f9f9f9;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            text-align: center;
+            overflow: hidden;
+        }
+        h1 {
+            font-size: 3em;
+            margin-bottom: 20px;
+        }
+        p {
+            font-size: 1.5em;
+            color: #333;
+        }
+        .note {
+            margin-top: 15px;
+            font-style: italic;
+            font-size: 1.2em;
+        }
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+        .status-up { color: #28a745; }
+        .status-warning { color: orange; }
 </style>
 </head>
 <body>
-
-<div class="header">
-  <h1>viaPeople Status</h1>
-  <p>Live system health and availability</p>
-</div>
-
-<div class="status-box">
-  <div id="overallStatus" class="indicator">Loading...</div>
-  <div id="services"></div>
-  <div id="updated" class="last-updated"></div>
-</div>
-
-<script>
-async function loadStatus() {
-  try {
-    const data = await fetch('status.json?cache=' + Date.now()).then(r => r.json());
-
-    // Overall Status
-    const overall = document.getElementById('overallStatus');
-    overall.textContent = data.overall.message;
-    overall.className = "indicator " + data.overall.level;
-
-    // Services
-    const svc = document.getElementById('services');
-    svc.innerHTML = "";
-    data.services.forEach(s => {
-      svc.innerHTML += `
-        <div class="service">
-          <strong>${s.name}</strong><br>
-          <span class="${s.level}">${s.message}</span>
-        </div>`;
-    });
-
-    // Timestamp
-    document.getElementById('updated').textContent =
-      "Last updated: " + new Date(data.updated).toLocaleString();
-  }
-  catch (e) {
-    document.getElementById('overallStatus').innerHTML =
-      `<span class="red">Unable to load status.</span>`;
-  }
-}
-
-loadStatus();
-setInterval(loadStatus, 30000); // Refresh every 30 seconds
+<h1 id="status-heading"></h1>
+<p id="status-message"></p>
+<p class="note" id="last-updated"></p>
+ 
+    <canvas id="confetti"></canvas>
+ 
+    <script>
+        // ---------------------------
+        // CHANGE THIS VARIABLE TO TOGGLE STATUS
+        // "up" = all systems operational
+        // "slowness" = system is slow / outage
+        const systemStatus = "up"; 
+        // ---------------------------
+ 
+        const heading = document.getElementById('status-heading');
+        const message = document.getElementById('status-message');
+        const lastUpdated = document.getElementById('last-updated');
+        const canvas = document.getElementById('confetti');
+        const ctx = canvas.getContext('2d');
+ 
+        let W = window.innerWidth;
+        let H = window.innerHeight;
+        canvas.width = W;
+        canvas.height = H;
+ 
+        function showStatus() {
+            const now = new Date();
+            lastUpdated.textContent = `Last updated: ${now.toLocaleString()}`;
+ 
+            if (systemStatus === "up") {
+                heading.textContent = "🎉 All Systems Are Operational! 🎉";
+                heading.className = "status-up";
+                message.textContent = "Thank you for using our performance platform.";
+                startConfetti();
+            } else if (systemStatus === "slowness") {
+                heading.textContent = "⚠️ We are currently experiencing system slowness";
+                heading.className = "status-warning";
+                message.textContent = "Our technical team is actively investigating. Thank you for your patience.";
+            }
+        }
+ 
+        // ---------------------------
+        // Confetti effect for "up" status
+        // ---------------------------
+        const confettiCount = 150;
+        const confetti = [];
+ 
+        function random(min, max) { return Math.random() * (max - min) + min; }
+ 
+        class Confetto {
+            constructor() {
+                this.x = random(0, W);
+                this.y = random(-H, 0);
+                this.r = random(5, 10);
+                this.d = random(1, 5);
+                this.color = `hsl(${random(0, 360)}, 70%, 50%)`;
+                this.tilt = random(-10, 10);
+                this.tiltAngleIncrement = random(0.05, 0.12);
+                this.tiltAngle = 0;
+            }
+            draw() {
+                ctx.beginPath();
+                ctx.lineWidth = this.r / 2;
+                ctx.strokeStyle = this.color;
+                ctx.moveTo(this.x + this.tilt + this.r / 4, this.y);
+                ctx.lineTo(this.x + this.tilt, this.y + this.tilt + this.r / 4);
+                ctx.stroke();
+            }
+        }
+ 
+        function initConfetti() {
+            for (let i = 0; i < confettiCount; i++) {
+                confetti.push(new Confetto());
+            }
+        }
+ 
+        function drawConfetti() {
+            ctx.clearRect(0, 0, W, H);
+            confetti.forEach(c => {
+                c.tiltAngle += c.tiltAngleIncrement;
+                c.y += (Math.cos(c.d) + 3 + c.r / 2) / 2;
+                c.tilt = Math.sin(c.tiltAngle) * 15;
+                c.draw();
+ 
+                if (c.y > H) {
+                    c.x = random(0, W);
+                    c.y = random(-20, 0);
+                    c.tilt = random(-10, 10);
+                }
+            });
+            requestAnimationFrame(drawConfetti);
+        }
+ 
+        function startConfetti() {
+            initConfetti();
+            drawConfetti();
+        }
+ 
+        window.addEventListener('resize', () => {
+            W = window.innerWidth;
+            H = window.innerHeight;
+            canvas.width = W;
+            canvas.height = H;
+        });
+ 
+        showStatus();
 </script>
-
 </body>
 </html>
