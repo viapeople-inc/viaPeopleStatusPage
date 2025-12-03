@@ -1,0 +1,24 @@
+{
+  "overall": {
+    "level": "green",
+    "message": "All Systems Operational"
+  },
+  "services": [
+    {
+      "name": "Application Cluster (Tomcat)",
+      "level": "green",
+      "message": "Running normally"
+    },
+    {
+      "name": "SQL Databases",
+      "level": "green",
+      "message": "Healthy"
+    },
+    {
+      "name": "F5 Load Balancer",
+      "level": "green",
+      "message": "Operational"
+    }
+  ],
+  "updated": "2025-12-02T00:00:00Z"
+}
