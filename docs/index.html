@@ -52,7 +52,7 @@
         // CHANGE THIS VARIABLE TO TOGGLE STATUS
         // "up" = all systems operational
         // "slowness" = system is slow / outage
-        const systemStatus = "slowness"; 
+        const systemStatus = "up"; 
         // ---------------------------
  
         const heading = document.getElementById('status-heading');
@@ -75,7 +75,7 @@
                 heading.className = "status-up";
                 message.textContent = "Thank you for using our performance platform.";
                 startConfetti();
-            } else if (systemStatus === "up") {
+            } else if (systemStatus === "slowness") {
                 heading.textContent = "⚠️ We are currently experiencing system slowness";
                 heading.className = "status-warning";
                 message.textContent = "Our technical team is actively investigating. Thank you for your patience.";
