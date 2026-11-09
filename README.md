@@ -10,7 +10,7 @@ Select GitHub Actions in Pages settings. Retain the custom domain and HTTPS. Run
 
 ## Health behavior
 
-The public entry point test establishes reachability only. Application performance combines responsiveness, capacity and telemetry coverage. Save failure monitoring can flag degradation, but absence of errors does not establish successful writes: `requiresPositiveCheck` keeps reviews unverified until a dedicated authenticated save test is configured and mapped.
+The public entry point test establishes reachability only. Application performance combines responsiveness, capacity and telemetry coverage. Review saving is omitted from the public service list until a dedicated authenticated save test is configured. Internal commit-failure alerts remain enabled. The overall banner summarizes only the displayed, configured services.
 
 Missing, unknown, skipped or draft monitors never establish health. Fresh detected failures appear immediately; recovery requires two healthy observations. Explicit maintenance windows in `status-config.json` contain UTC `start`, `end` and component IDs; they expire automatically. A muted Datadog alert does not imply maintenance or health. Maintenance labeling is separate from Datadog notification downtime.
 

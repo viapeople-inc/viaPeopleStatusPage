@@ -4,22 +4,15 @@
   "components": [
     {
       "id": "access",
-      "name": "Platform access",
+      "name": "Platform Access",
       "description": "Reachability of the public platform entry point.",
       "monitors": []
     },
     {
       "id": "performance",
-      "name": "Application performance",
+      "name": "Application Performance",
       "description": "Request responsiveness across the production platform.",
       "monitors": []
-    },
-    {
-      "id": "reviews",
-      "name": "Review saving and submission",
-      "description": "Save failures are monitored; end-to-end verification is being configured.",
-      "monitors": [],
-      "requiresPositiveCheck": true
     }
   ],
   "maintenance": []
