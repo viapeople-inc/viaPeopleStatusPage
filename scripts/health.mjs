@@ -9,6 +9,8 @@ export function evaluate(config, monitors, previous = {}, now = new Date()) {
       return ({OK:'operational',Alert:rule.alert,Warn:rule.warn})[monitor.overall_state] || 'unknown';
     });
     let status = states.length ? states.reduce((a,b)=>rank[a]>rank[b]?a:b) : 'unknown';
+    // Error absence cannot prove that a write workflow succeeds.
+    if (status === 'operational' && component.requiresPositiveCheck) status = 'unknown';
     const old = previous.components?.find(c=>c.id===component.id);
     let recoveryCount = 0;
     if (status === 'operational' && ['degraded','outage'].includes(old?.status)) {

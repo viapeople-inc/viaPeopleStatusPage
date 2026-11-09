@@ -1,6 +1,14 @@
 import {readFile,writeFile} from 'node:fs/promises';
 import {evaluate} from './health.mjs';
 const config=JSON.parse(await readFile('status-config.json','utf8'));
+// Keep internal monitor identifiers out of the public repository and artifact.
+const mapping=JSON.parse(process.env.STATUS_MONITOR_MAP || '{}');
+for (const component of config.components) {
+  const rules=mapping[component.id];
+  if (!Array.isArray(rules) || !rules.length) throw Error('Configure private service monitor mappings');
+  if (rules.some(r=>!Number.isSafeInteger(r.id) || r.id<=0 || !['degraded','outage'].includes(r.alert) || !['degraded','outage'].includes(r.warn))) throw Error('Invalid private monitor mapping');
+  component.monitors=rules;
+}
 let previous={}; try {previous=JSON.parse(await readFile('docs/status.json','utf8'));} catch {}
 const site=process.env.DD_SITE || 'datadoghq.com';
 if (!['datadoghq.com','datadoghq.eu','us3.datadoghq.com','us5.datadoghq.com','ap1.datadoghq.com','ap2.datadoghq.com'].includes(site)) throw Error('Unsupported Datadog site');
