@@ -20,5 +20,5 @@ function render(){
 }
 async function refresh(){if(loading)return;loading=true;el('refresh').disabled=true;try{const r=await fetch(`status.json?t=${Date.now()}`,{cache:'no-store',signal:AbortSignal.timeout(15000)});if(!r.ok)throw Error();const data=await r.json();if(!Array.isArray(data.components)||!(data.status in labels))throw Error();snapshot=data;failed=false;}catch{failed=true;}finally{loading=false;el('refresh').disabled=false;render();}}
 el('refresh').onclick=refresh;el('theme').onclick=()=>{document.documentElement.classList.toggle('light');try{localStorage.setItem('status-theme',document.documentElement.classList.contains('light')?'light':'dark');}catch{}};
-try{document.documentElement.classList.toggle('light',localStorage.getItem('status-theme')==='light');}catch{}
+try{document.documentElement.classList.toggle('light',localStorage.getItem('status-theme')!=='dark');}catch{}
 refresh();setInterval(refresh,60000);setInterval(render,15000);
