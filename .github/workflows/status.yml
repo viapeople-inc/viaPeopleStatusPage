@@ -1,0 +1,40 @@
+name: Publish monitored status
+on:
+  schedule:
+    - cron: '3-58/5 * * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: status-publication
+  cancel-in-progress: false
+jobs:
+  publish:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Restore last public snapshot
+        run: |
+          curl --fail --silent --show-error --max-time 20 https://status.viapeople.net/status.json -o /tmp/previous-status.json && node -e "JSON.parse(require('fs').readFileSync('/tmp/previous-status.json'));require('fs').copyFileSync('/tmp/previous-status.json','docs/status.json')" || true
+      - run: node --test tests/*.test.mjs
+      - run: node scripts/update-status.mjs
+        env:
+          DD_API_KEY: ${{ secrets.DD_API_KEY }}
+          DD_APP_KEY: ${{ secrets.DD_APP_KEY }}
+          DD_SITE: ${{ vars.DD_SITE }}
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs
+      - name: Publish
+        id: deployment
+        uses: actions/deploy-pages@v4
