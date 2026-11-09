@@ -1,0 +1,25 @@
+{
+  "generatedAt": null,
+  "status": "unknown",
+  "components": [
+    {
+      "id": "access",
+      "name": "Platform access",
+      "description": "Reachability of the public platform entry point.",
+      "status": "unknown"
+    },
+    {
+      "id": "performance",
+      "name": "Application performance",
+      "description": "Request responsiveness across the production platform.",
+      "status": "unknown"
+    },
+    {
+      "id": "reviews",
+      "name": "Review saving and submission",
+      "description": "Dedicated save and submission monitoring is being configured.",
+      "status": "unknown"
+    }
+  ],
+  "history": []
+}

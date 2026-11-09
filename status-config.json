@@ -1,0 +1,10 @@
+{
+  "staleAfterSeconds": 900,
+  "recoverySamples": 2,
+  "components": [
+    {"id":"access","name":"Platform access","description":"Reachability of the public platform entry point.","monitors":[{"id":333754934,"alert":"outage","warn":"degraded"}]},
+    {"id":"performance","name":"Application performance","description":"Request responsiveness across the production platform.","monitors":[{"id":341944259,"alert":"degraded","warn":"degraded"},{"id":340971027,"alert":"degraded","warn":"degraded"}]},
+    {"id":"reviews","name":"Review saving and submission","description":"Dedicated save and submission monitoring is being configured.","monitors":[]}
+  ],
+  "maintenance": []
+}
