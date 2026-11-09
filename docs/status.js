@@ -1,5 +1,5 @@
-const labels={operational:'Operational',degraded:'Degraded performance',outage:'Service disruption',maintenance:'Scheduled maintenance',unknown:'Status unavailable'};
-const headlines={operational:'All monitored services operational',degraded:'Some services are experiencing issues',outage:'A service disruption has been detected',maintenance:'Maintenance in progress',unknown:'Some service health is unverified'};
+const labels={operational:'Operational',degraded:'Degraded Performance',outage:'Service Disruption',maintenance:'Scheduled Maintenance',unknown:'Status Unavailable'};
+const headlines={operational:'All Monitored Services Operational',degraded:'Some Services Are Experiencing Issues',outage:'A Service Disruption Has Been Detected',maintenance:'Maintenance In Progress',unknown:'Service Health Is Unverified'};
 let snapshot;let failed=false;let loading=false;
 const el=id=>document.getElementById(id);
 const make=(tag,text,cls)=>{const node=document.createElement(tag);node.textContent=text;if(cls)node.className=cls;return node;};
@@ -10,7 +10,7 @@ function render(){
  el('headline').textContent=headlines[status]||headlines.unknown;
  el('indicator').className=`indicator ${status in labels?status:'unknown'}`;
  el('summary-text').textContent=stale?'Current health could not be verified. Previous status is not confirmation of recovery.':status==='operational'?'The configured checks are reporting healthy.':status==='unknown'?'Some checks are unavailable or have not been configured.':status==='maintenance'?'Scheduled work is affecting the services shown below.':'Automated monitoring has detected potential customer impact. See service details below.';
- el('updated').textContent=Number.isFinite(age)?`Last monitoring update: ${new Date(snapshot.generatedAt).toLocaleString()}${stale?' · Update unavailable or stale':''}`:'No monitoring update available';
+ el('updated').textContent=Number.isFinite(age)?`Last Monitoring Update: ${new Date(snapshot.generatedAt).toLocaleString()}${stale?' · Update unavailable or stale':''}`:'No Monitoring Update Available';
  el('services').replaceChildren();
  for(const c of snapshot?.components||[]){const s=stale?'unknown':c.status;const row=make('div','','service');const text=make('div','');text.append(make('h3',c.name),make('p',c.description));row.append(text,make('span',labels[s]||labels.unknown,`badge ${s in labels?s:'unknown'}`));el('services').append(row);}
  if(!snapshot?.components?.length)el('services').append(make('p','Service health is currently unavailable.','empty'));
