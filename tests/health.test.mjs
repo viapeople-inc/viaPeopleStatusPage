@@ -9,3 +9,5 @@ test('empty monitor mapping is explicitly unknown',()=>assert.equal(evaluate({..
 test('muted alerts remain affected',()=>assert.equal(evaluate(config,[{id:1,overall_state:'Alert',options:{silenced:{'*':null}}}],{},now).status,'outage'));
 test('maintenance affects only explicit time and component',()=>{const c={...config,maintenance:[{components:['access'],start:'2026-11-09T17:00:00Z',end:'2026-11-09T19:00:00Z'}]};assert.equal(check('Alert',{},now,c).status,'maintenance');assert.equal(check('Alert',{},new Date('2026-11-09T20:00:00Z'),c).status,'outage');});
 test('draft monitors do not establish health',()=>assert.equal(evaluate(config,[{id:1,overall_state:'OK',draft_status:'draft'}],{},now).status,'unknown'));
+
+test('error-only coverage flags failures but cannot prove successful saves',()=>{const c={...config,components:[{...config.components[0],requiresPositiveCheck:true}]};assert.equal(check('OK',{},now,c).status,'unknown');assert.equal(check('Alert',{},now,c).status,'outage');});
