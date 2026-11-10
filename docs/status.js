@@ -14,6 +14,13 @@ function render(){
  el('services').replaceChildren();
  for(const c of snapshot?.components||[]){const s=stale?'unknown':c.status;const row=make('div','','service');const text=make('div','');text.append(make('h3',c.name),make('p',c.description));row.append(text,make('span',stale?`Last Verified: ${labels[c.status]||labels.unknown}`:labels[s]||labels.unknown,`badge ${s in labels?s:'unknown'}`));el('services').append(row);}
  if(!snapshot?.components?.length)el('services').append(make('p','Service health is currently unavailable.','empty'));
+ const maintenance=Array.isArray(snapshot?.maintenance)?snapshot.maintenance:[];
+ const visible=maintenance.filter(w=>w&& !['completed','canceled'].includes(w.phase));
+ el('maintenance-section').hidden=!visible.length&&snapshot?.maintenanceFeedAvailable!==false;
+ el('maintenance-windows').replaceChildren();
+ if(snapshot?.maintenanceFeedAvailable===false)el('maintenance-windows').append(make('p','Maintenance schedule updates are unavailable. Previously announced windows may have changed.','empty'));
+ const phases={scheduled:'Upcoming Maintenance',in_progress:'Maintenance In Progress',verifying:'Verifying Service Recovery',overrun:'Maintenance Window Ended — Recovery Not Verified'};
+ for(const w of visible){const row=make('article','','maintenance-card');row.append(make('strong',stale||!w.scheduleVerified?'Maintenance Update Unverified':phases[w.phase]||'Maintenance Update'),make('h3',w.title),make('p',w.message),make('p',`${new Date(w.start).toLocaleString()} – ${new Date(w.end).toLocaleString()}`),make('p',w.impact==='interruption'?'Brief service interruptions are expected during this window.':'No service interruption is expected.'));el('maintenance-windows').append(row);}
  el('history').replaceChildren();
  for(const h of (snapshot?.history||[]).slice(0,15)){if(!h)continue;const c=snapshot.components.find(c=>c.id===h.component);if(!c)continue;const row=make('div','','event');row.append(make('span',`${c.name}: ${labels[h.status]||labels.unknown}`),make('time',new Date(h.at).toLocaleString()));el('history').append(row);}
  if(!snapshot?.history?.length)el('history').append(make('p','No recorded status changes yet.','empty'));

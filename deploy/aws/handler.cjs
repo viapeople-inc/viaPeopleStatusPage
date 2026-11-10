@@ -13,7 +13,7 @@ exports.handler = async () => {
   // A retry or duplicate schedule must not count as a second recovery sample.
   const elapsed = Date.now() - Date.parse(previous.generatedAt);
   if (elapsed >= 0 && elapsed < 45000) return {skipped:true};
-  const snapshot = await collect(settings,previous);
+  const snapshot = await attachMaintenance(await collect(settings,previous),previous);
   await s3.send(new PutObjectCommand({Bucket:process.env.STATUS_BUCKET,Key:'status.json',Body:JSON.stringify(snapshot),ContentType:'application/json',CacheControl:'no-store'}));
   console.log(JSON.stringify({event:'status_collected',generatedAt:snapshot.generatedAt,status:snapshot.status}));
   return {generatedAt:snapshot.generatedAt,status:snapshot.status};

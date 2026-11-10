@@ -38,6 +38,7 @@ jobs:
           DD_APP_KEY: ${{ secrets.DD_APP_KEY }}
           STATUS_MONITOR_MAP: ${{ secrets.STATUS_MONITOR_MAP }}
           DD_SITE: ${{ vars.DD_SITE }}
+          MAINTENANCE_FEED_URL: https://viaresources.viapeople.com/api/public/maintenance
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
