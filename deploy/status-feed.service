@@ -1,0 +1,24 @@
+[Unit]
+Description=viaPeople public status feed
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=status-feed
+WorkingDirectory=/opt/viapeople-status
+EnvironmentFile=/etc/viapeople-status.env
+Environment=HOST=127.0.0.1
+Environment=PORT=8080
+Environment=STATUS_STATE_FILE=/var/lib/viapeople-status/status.json
+ExecStart=/usr/bin/node scripts/live-status.mjs
+Restart=always
+RestartSec=5
+StateDirectory=viapeople-status
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target

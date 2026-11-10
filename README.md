@@ -14,7 +14,9 @@ The public entry point test establishes reachability only. Application performan
 
 Missing, unknown, skipped or draft monitors never establish health. Fresh detected failures appear immediately; recovery requires two healthy observations. Explicit maintenance windows in `status-config.json` contain UTC `start`, `end` and component IDs; they expire automatically. A muted Datadog alert does not imply maintenance or health. Maintenance labeling is separate from Datadog notification downtime.
 
-Updates are requested every five minutes. GitHub schedules can be delayed. The page refreshes every minute; snapshots older than fifteen minutes are marked unavailable. A missing credential or mapping stops publication; old data then expires visibly. Source API errors publish unknown status. Monitor evaluation windows still apply.
+The page refreshes every 30 seconds and immediately when the browser reconnects or the tab becomes visible. A temporary browser fetch failure does not invalidate a still-fresh snapshot. Expired data is labeled Monitoring Updates Delayed, with the last verified service state displayed as historical information, never current green health. The browser respects the snapshot expiry, capped at fifteen minutes.
+
+The static publisher still requests updates every five minutes; GitHub schedules can be delayed. For reliable one-minute collection independent of page deployments, deploy the optional live feed and set `STATUS_FEED_URL`. See [deployment instructions](deploy/README.md). The live feed expires after three minutes; merging alone does not activate it. A missing credential or mapping stops publication; old data then expires visibly. Source API errors publish unknown status. Monitor evaluation windows still apply.
 
 History retains the latest 100 observed transitions from the previous published snapshot. Failed history restore starts a new history; no uptime SLA or historical incident record is fabricated.
 
@@ -25,3 +27,4 @@ Use a dedicated test tenant and disposable review cycle for authenticated save c
 ## Validation
 
 Run `node --test tests/*.test.mjs` and `node --check docs/status.js`. The committed snapshot is unknown by design. The scheduled publisher creates fresh monitoring data.
+

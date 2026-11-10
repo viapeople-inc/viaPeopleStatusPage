@@ -29,6 +29,9 @@ jobs:
         run: |
           curl --fail --silent --show-error --max-time 20 https://status.viapeople.net/status.json -o /tmp/previous-status.json && node -e "JSON.parse(require('fs').readFileSync('/tmp/previous-status.json'));require('fs').copyFileSync('/tmp/previous-status.json','docs/status.json')" || true
       - run: node --test tests/*.test.mjs
+      - run: node scripts/configure-feed.mjs
+        env:
+          STATUS_FEED_URL: ${{ vars.STATUS_FEED_URL }}
       - run: node scripts/update-status.mjs
         env:
           DD_API_KEY: ${{ secrets.DD_API_KEY }}
@@ -42,3 +45,4 @@ jobs:
       - name: Publish
         id: deployment
         uses: actions/deploy-pages@v4
+
