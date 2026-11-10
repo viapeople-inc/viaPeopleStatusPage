@@ -258,6 +258,16 @@
                       "Arn"
                     ]
                   }
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": "s3:ListBucket",
+                  "Resource": {
+                    "Fn::GetAtt": [
+                      "Bucket",
+                      "Arn"
+                    ]
+                  }
                 }
               ]
             }
