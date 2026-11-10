@@ -1,0 +1,443 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "One minute status collector and private S3 origin with public CloudFront status feed",
+  "Parameters": {
+    "CredentialsArn": {
+      "Type": "String",
+      "AllowedPattern": "arn:aws:secretsmanager:.*"
+    }
+  },
+  "Resources": {
+    "Bucket": {
+      "Type": "AWS::S3::Bucket",
+      "Properties": {
+        "PublicAccessBlockConfiguration": {
+          "BlockPublicAcls": true,
+          "IgnorePublicAcls": true,
+          "BlockPublicPolicy": true,
+          "RestrictPublicBuckets": true
+        },
+        "BucketEncryption": {
+          "ServerSideEncryptionConfiguration": [
+            {
+              "ServerSideEncryptionByDefault": {
+                "SSEAlgorithm": "AES256"
+              }
+            }
+          ]
+        },
+        "VersioningConfiguration": {
+          "Status": "Enabled"
+        },
+        "LifecycleConfiguration": {
+          "Rules": [
+            {
+              "Id": "TrimOldStatusVersions",
+              "Status": "Enabled",
+              "NoncurrentVersionExpiration": {
+                "NoncurrentDays": 1
+              }
+            }
+          ]
+        }
+      },
+      "DeletionPolicy": "Retain",
+      "UpdateReplacePolicy": "Retain"
+    },
+    "OriginAccess": {
+      "Type": "AWS::CloudFront::OriginAccessControl",
+      "Properties": {
+        "OriginAccessControlConfig": {
+          "Name": {
+            "Fn::Sub": "${AWS::StackName}-origin"
+          },
+          "OriginAccessControlOriginType": "s3",
+          "SigningBehavior": "always",
+          "SigningProtocol": "sigv4"
+        }
+      }
+    },
+    "Headers": {
+      "Type": "AWS::CloudFront::ResponseHeadersPolicy",
+      "Properties": {
+        "ResponseHeadersPolicyConfig": {
+          "Name": {
+            "Fn::Sub": "${AWS::StackName}-cors"
+          },
+          "CorsConfig": {
+            "AccessControlAllowCredentials": false,
+            "AccessControlAllowHeaders": {
+              "Items": [
+                "*"
+              ]
+            },
+            "AccessControlAllowMethods": {
+              "Items": [
+                "GET",
+                "HEAD"
+              ]
+            },
+            "AccessControlAllowOrigins": {
+              "Items": [
+                "https://status.viapeople.net"
+              ]
+            },
+            "OriginOverride": true
+          },
+          "SecurityHeadersConfig": {
+            "ContentTypeOptions": {
+              "Override": true
+            }
+          }
+        }
+      }
+    },
+    "Distribution": {
+      "Type": "AWS::CloudFront::Distribution",
+      "Properties": {
+        "DistributionConfig": {
+          "Enabled": true,
+          "Comment": "Public sanitized Enterprise App status only",
+          "DefaultRootObject": "status.json",
+          "PriceClass": "PriceClass_100",
+          "Origins": [
+            {
+              "Id": "status",
+              "DomainName": {
+                "Fn::GetAtt": [
+                  "Bucket",
+                  "RegionalDomainName"
+                ]
+              },
+              "OriginAccessControlId": {
+                "Ref": "OriginAccess"
+              },
+              "S3OriginConfig": {
+                "OriginAccessIdentity": ""
+              }
+            }
+          ],
+          "DefaultCacheBehavior": {
+            "TargetOriginId": "status",
+            "ViewerProtocolPolicy": "redirect-to-https",
+            "AllowedMethods": [
+              "GET",
+              "HEAD"
+            ],
+            "CachedMethods": [
+              "GET",
+              "HEAD"
+            ],
+            "CachePolicyId": "4135ea2d-6df8-44a3-9df3-4b5a84be39ad",
+            "ResponseHeadersPolicyId": {
+              "Ref": "Headers"
+            },
+            "Compress": true
+          },
+          "ViewerCertificate": {
+            "CloudFrontDefaultCertificate": true
+          },
+          "CustomErrorResponses": [
+            {
+              "ErrorCode": 403,
+              "ErrorCachingMinTTL": 0
+            },
+            {
+              "ErrorCode": 404,
+              "ErrorCachingMinTTL": 0
+            }
+          ]
+        }
+      }
+    },
+    "BucketPolicy": {
+      "Type": "AWS::S3::BucketPolicy",
+      "Properties": {
+        "Bucket": {
+          "Ref": "Bucket"
+        },
+        "PolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "cloudfront.amazonaws.com"
+              },
+              "Action": "s3:GetObject",
+              "Resource": {
+                "Fn::Sub": "${Bucket.Arn}/status.json"
+              },
+              "Condition": {
+                "StringEquals": {
+                  "AWS:SourceArn": {
+                    "Fn::Sub": "arn:${AWS::Partition}:cloudfront::${AWS::AccountId}:distribution/${Distribution}"
+                  }
+                }
+              }
+            },
+            {
+              "Effect": "Deny",
+              "Principal": "*",
+              "Action": "s3:*",
+              "Resource": [
+                {
+                  "Fn::GetAtt": [
+                    "Bucket",
+                    "Arn"
+                  ]
+                },
+                {
+                  "Fn::Sub": "${Bucket.Arn}/*"
+                }
+              ],
+              "Condition": {
+                "Bool": {
+                  "aws:SecureTransport": "false"
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "DeadLetters": {
+      "Type": "AWS::SQS::Queue",
+      "Properties": {
+        "SqsManagedSseEnabled": true,
+        "MessageRetentionPeriod": 1209600
+      }
+    },
+    "CollectorRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "lambda.amazonaws.com"
+              },
+              "Action": "sts:AssumeRole"
+            }
+          ]
+        },
+        "Policies": [
+          {
+            "PolicyName": "CollectAndPublish",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "s3:GetObject",
+                    "s3:PutObject"
+                  ],
+                  "Resource": {
+                    "Fn::Sub": "${Bucket.Arn}/status.json"
+                  }
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "logs:CreateLogStream",
+                    "logs:PutLogEvents"
+                  ],
+                  "Resource": {
+                    "Fn::Sub": "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${AWS::StackName}-collector:*"
+                  }
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": "sqs:SendMessage",
+                  "Resource": {
+                    "Fn::GetAtt": [
+                      "DeadLetters",
+                      "Arn"
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "Collector": {
+      "Type": "AWS::Lambda::Function",
+      "Properties": {
+        "FunctionName": {
+          "Fn::Sub": "${AWS::StackName}-collector"
+        },
+        "Runtime": "nodejs22.x",
+        "Handler": "index.handler",
+        "Role": {
+          "Fn::GetAtt": [
+            "CollectorRole",
+            "Arn"
+          ]
+        },
+        "Timeout": 30,
+        "MemorySize": 128,
+        "ReservedConcurrentExecutions": 1,
+        "Code": {
+          "ZipFile": "const rank = {operational:0, maintenance:1, unknown:2, degraded:3, outage:4};\nfunction evaluate(config, monitors, previous = {}, now = new Date()) {\n  const timestamp = now.toISOString();\n  const recent = Date.parse(previous.generatedAt) <= +now && +now-Date.parse(previous.generatedAt) < config.staleAfterSeconds*1000;\n  const components = config.components.map(component => {\n    const states = component.monitors.map(rule => {\n      const monitor = monitors.find(m => m.id === rule.id);\n      if (!monitor || monitor.deleted || monitor.draft_status === 'draft') return 'unknown';\n      return ({OK:'operational',Alert:rule.alert,Warn:rule.warn})[monitor.overall_state] || 'unknown';\n    });\n    let status = states.length ? states.reduce((a,b)=>rank[a]>rank[b]?a:b) : 'unknown';\n    // Error absence cannot prove that a write workflow succeeds.\n    if (status === 'operational' && component.requiresPositiveCheck) status = 'unknown';\n    const old = previous.components?.find(c=>c.id===component.id);\n    let recoveryCount = 0;\n    if (status === 'operational' && ['degraded','outage'].includes(old?.status)) {\n      recoveryCount = (recent ? old.recoveryCount || 0 : 0) + 1;\n      if (recoveryCount < config.recoverySamples) status = old.status;\n    }\n    const planned = config.maintenance.some(m => m.components.includes(component.id) && Date.parse(m.start)<=+now && +now<Date.parse(m.end));\n    // Explicit public maintenance only; a muted Datadog monitor is not evidence of maintenance or recovery.\n    if (planned) {status='maintenance'; recoveryCount=0;}\n    return {id:component.id,name:component.name,description:component.description,status,recoveryCount};\n  });\n  const status = components.reduce((a,b)=>rank[a]>rank[b.status]?a:b.status,'operational');\n  const history = (previous.history || []).filter(e=>e && typeof e.at==='string' && config.components.some(c=>c.id===e.component) && Object.hasOwn(rank,e.status)).map(e=>({at:e.at,component:e.component,status:e.status}));\n  for (const c of components) if (previous.components?.find(p=>p.id===c.id)?.status !== c.status) history.unshift({at:timestamp,component:c.id,status:c.status});\n  return {generatedAt:timestamp,staleAfterSeconds:config.staleAfterSeconds,status,components,history:history.slice(0,100)};\n}\n\n\n\nfunction configure(config, env = process.env) {\n  const mapping = JSON.parse(env.STATUS_MONITOR_MAP || '{}');\n  const components = config.components.map(component => {\n    const rules = mapping[component.id];\n    if (!Array.isArray(rules) || !rules.length || rules.some(r => !Number.isSafeInteger(r.id) ||\n      r.id <= 0 || !['degraded', 'outage'].includes(r.alert) || !['degraded', 'outage'].includes(r.warn)))\n      throw Error('Configure valid private service monitor mappings');\n    return {...component, monitors: rules};\n  });\n  const site = env.DD_SITE || 'datadoghq.com';\n  if (!['datadoghq.com','datadoghq.eu','us3.datadoghq.com','us5.datadoghq.com','ap1.datadoghq.com','ap2.datadoghq.com'].includes(site)) throw Error('Unsupported Datadog site');\n  if (!env.DD_API_KEY || !env.DD_APP_KEY) throw Error('Configure Datadog credentials');\n  return {config: {...config, components}, site, headers: {'DD-API-KEY': env.DD_API_KEY, 'DD-APPLICATION-KEY': env.DD_APP_KEY}};\n}\nasync function collect(settings, previous = {}, fetcher = fetch, now = () => new Date()) {\n  const ids = [...new Set(settings.config.components.flatMap(c => c.monitors.map(m => m.id)))];\n  const monitors = await Promise.all(ids.map(async id => {\n    try {\n      const response = await fetcher(`https://api.${settings.site}/api/v1/monitor/${id}`, {\n        headers: settings.headers, signal: AbortSignal.timeout(10000)\n      });\n      if (!response.ok) return {id, overall_state: 'Unknown'};\n      const body = await response.json();\n      return {id, overall_state: body.overall_state, deleted: body.deleted, draft_status: body.draft_status};\n    } catch { return {id, overall_state: 'Unknown'}; }\n  }));\n  return evaluate(settings.config, monitors, previous, now());\n}\n\nconst PUBLIC_CONFIG={\n  \"staleAfterSeconds\": 900,\n  \"recoverySamples\": 2,\n  \"components\": [\n    {\n      \"id\": \"access\",\n      \"name\": \"Enterprise App Access\",\n      \"description\": \"Reachability of the Enterprise App public entry point.\",\n      \"monitors\": []\n    },\n    {\n      \"id\": \"performance\",\n      \"name\": \"Enterprise App Performance\",\n      \"description\": \"Request responsiveness across the Enterprise App.\",\n      \"monitors\": []\n    }\n  ],\n  \"maintenance\": []\n}\n\n;\n// Bundled with the same collector and evaluator used by the static publisher.\nconst {S3Client, GetObjectCommand, PutObjectCommand} = require('@aws-sdk/client-s3');\nconst s3 = new S3Client({});\nexports.handler = async () => {\n  const settings = configure({...PUBLIC_CONFIG, staleAfterSeconds:180});\n  let previous = {};\n  try {\n    const object = await s3.send(new GetObjectCommand({Bucket:process.env.STATUS_BUCKET,Key:'status.json'}));\n    previous = JSON.parse(await object.Body.transformToString());\n  } catch (error) {\n    if (error.name !== 'NoSuchKey') throw Error('Status state unavailable');\n  }\n  // A retry or duplicate schedule must not count as a second recovery sample.\n  const elapsed = Date.now() - Date.parse(previous.generatedAt);\n  if (elapsed >= 0 && elapsed < 45000) return {skipped:true};\n  const snapshot = await collect(settings,previous);\n  await s3.send(new PutObjectCommand({Bucket:process.env.STATUS_BUCKET,Key:'status.json',Body:JSON.stringify(snapshot),ContentType:'application/json',CacheControl:'no-store'}));\n  console.log(JSON.stringify({event:'status_collected',generatedAt:snapshot.generatedAt,status:snapshot.status}));\n  return {generatedAt:snapshot.generatedAt,status:snapshot.status};\n};\n"
+        },
+        "DeadLetterConfig": {
+          "TargetArn": {
+            "Fn::GetAtt": [
+              "DeadLetters",
+              "Arn"
+            ]
+          }
+        },
+        "Environment": {
+          "Variables": {
+            "STATUS_BUCKET": {
+              "Ref": "Bucket"
+            },
+            "DD_API_KEY": {
+              "Fn::Sub": "{{resolve:secretsmanager:${CredentialsArn}:SecretString:DD_API_KEY}}"
+            },
+            "DD_APP_KEY": {
+              "Fn::Sub": "{{resolve:secretsmanager:${CredentialsArn}:SecretString:DD_APP_KEY}}"
+            },
+            "STATUS_MONITOR_MAP": {
+              "Fn::Sub": "{{resolve:secretsmanager:${CredentialsArn}:SecretString:STATUS_MONITOR_MAP}}"
+            },
+            "DD_SITE": {
+              "Fn::Sub": "{{resolve:secretsmanager:${CredentialsArn}:SecretString:DD_SITE}}"
+            }
+          }
+        }
+      },
+      "DependsOn": "LogGroup"
+    },
+    "LogGroup": {
+      "Type": "AWS::Logs::LogGroup",
+      "Properties": {
+        "LogGroupName": {
+          "Fn::Sub": "/aws/lambda/${AWS::StackName}-collector"
+        },
+        "RetentionInDays": 7
+      }
+    },
+    "InvocationConfig": {
+      "Type": "AWS::Lambda::EventInvokeConfig",
+      "Properties": {
+        "FunctionName": {
+          "Ref": "Collector"
+        },
+        "Qualifier": "$LATEST",
+        "MaximumEventAgeInSeconds": 60,
+        "MaximumRetryAttempts": 0
+      }
+    },
+    "SchedulerRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "scheduler.amazonaws.com"
+              },
+              "Action": "sts:AssumeRole"
+            }
+          ]
+        },
+        "Policies": [
+          {
+            "PolicyName": "InvokeCollector",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": "lambda:InvokeFunction",
+                  "Resource": {
+                    "Fn::GetAtt": [
+                      "Collector",
+                      "Arn"
+                    ]
+                  }
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": "sqs:SendMessage",
+                  "Resource": {
+                    "Fn::GetAtt": [
+                      "DeadLetters",
+                      "Arn"
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "Schedule": {
+      "Type": "AWS::Scheduler::Schedule",
+      "Properties": {
+        "ScheduleExpression": "rate(1 minute)",
+        "FlexibleTimeWindow": {
+          "Mode": "OFF"
+        },
+        "State": "ENABLED",
+        "Target": {
+          "Arn": {
+            "Fn::GetAtt": [
+              "Collector",
+              "Arn"
+            ]
+          },
+          "RoleArn": {
+            "Fn::GetAtt": [
+              "SchedulerRole",
+              "Arn"
+            ]
+          },
+          "Input": "{}",
+          "RetryPolicy": {
+            "MaximumEventAgeInSeconds": 60,
+            "MaximumRetryAttempts": 0
+          },
+          "DeadLetterConfig": {
+            "Arn": {
+              "Fn::GetAtt": [
+                "DeadLetters",
+                "Arn"
+              ]
+            }
+          }
+        }
+      }
+    }
+  },
+  "Outputs": {
+    "FeedUrl": {
+      "Description": "Public sanitized feed",
+      "Value": {
+        "Fn::Sub": "https://${Distribution.DomainName}/status.json"
+      }
+    },
+    "CollectorName": {
+      "Description": "Scheduled collector",
+      "Value": {
+        "Ref": "Collector"
+      }
+    },
+    "BucketName": {
+      "Description": "Private status snapshots",
+      "Value": {
+        "Ref": "Bucket"
+      }
+    }
+  }
+}

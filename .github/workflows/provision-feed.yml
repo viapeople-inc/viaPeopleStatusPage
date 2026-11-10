@@ -1,0 +1,36 @@
+name: Provision live feed credentials
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/provision-feed.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+  id-token: write
+jobs:
+  provision:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::069066994138:role/viapeople-status-bootstrap-ProvisionRole-7M6bEMF1aCvA
+          aws-region: us-east-1
+      - name: Transfer existing credentials without logging values
+        env:
+          DD_API_KEY: ${{ secrets.DD_API_KEY }}
+          DD_APP_KEY: ${{ secrets.DD_APP_KEY }}
+          STATUS_MONITOR_MAP: ${{ secrets.STATUS_MONITOR_MAP }}
+          DD_SITE: ${{ vars.DD_SITE }}
+        run: |
+          python3 - <<'PY'
+          import json, os, subprocess, tempfile
+          values = {k: os.environ.get(k, '') for k in ['DD_API_KEY','DD_APP_KEY','STATUS_MONITOR_MAP','DD_SITE']}
+          values['DD_SITE'] = values['DD_SITE'] or 'datadoghq.com'
+          assert all(values.values()), 'Required status credentials are missing'
+          assert isinstance(json.loads(values['STATUS_MONITOR_MAP']), dict), 'Invalid private mapping'
+          with tempfile.NamedTemporaryFile(mode='w') as f:
+              json.dump(values, f)
+              f.flush()
+              subprocess.run(['aws','secretsmanager','put-secret-value','--secret-id','arn:aws:secretsmanager:us-east-1:069066994138:secret:Credentials-c5RgIxyZIiYK-xYvXu0','--secret-string','file://' + f.name,'--query','VersionId','--output','text'],check=True)
+          PY
