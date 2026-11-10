@@ -11,3 +11,13 @@ test('maintenance affects only explicit time and component',()=>{const c={...con
 test('draft monitors do not establish health',()=>assert.equal(evaluate(config,[{id:1,overall_state:'OK',draft_status:'draft'}],{},now).status,'unknown'));
 
 test('error-only coverage flags failures but cannot prove successful saves',()=>{const c={...config,components:[{...config.components[0],requiresPositiveCheck:true}]};assert.equal(check('OK',{},now,c).status,'unknown');assert.equal(check('Alert',{},now,c).status,'outage');});
+
+
+test('internal slow-request alert alone does not degrade public service',()=>{
+ const c={...config,components:[{...config.components[0],monitors:[{id:1,alert:'degraded',warn:'degraded'},{id:2,alert:'degraded',warn:'degraded'}]}]};
+ const monitors=[{id:1,overall_state:'Alert',internalOnly:true},{id:2,overall_state:'OK'}];
+ assert.equal(evaluate(c,monitors,{},now).status,'operational');
+ assert.equal(evaluate(c,[monitors[0],{id:2,overall_state:'Alert'}],{},now).status,'degraded');
+ assert.equal(evaluate(c,[monitors[0],{id:2,overall_state:'Unknown'}],{},now).status,'unknown');
+ assert.equal(evaluate(config,[monitors[0]],{},now).status,'unknown');
+});

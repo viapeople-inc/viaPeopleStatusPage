@@ -3,7 +3,11 @@ export function evaluate(config, monitors, previous = {}, now = new Date()) {
   const timestamp = now.toISOString();
   const recent = Date.parse(previous.generatedAt) <= +now && +now-Date.parse(previous.generatedAt) < config.staleAfterSeconds*1000;
   const components = config.components.map(component => {
-    const states = component.monitors.map(rule => {
+    const publicRules = component.monitors.filter(rule => {
+      const monitor = monitors.find(m => m.id === rule.id);
+      return !monitor?.internalOnly || monitor.deleted || monitor.draft_status === 'draft';
+    });
+    const states = publicRules.map(rule => {
       const monitor = monitors.find(m => m.id === rule.id);
       if (!monitor || monitor.deleted || monitor.draft_status === 'draft') return 'unknown';
       return ({OK:'operational',Alert:rule.alert,Warn:rule.warn})[monitor.overall_state] || 'unknown';
@@ -27,3 +31,4 @@ export function evaluate(config, monitors, previous = {}, now = new Date()) {
   for (const c of components) if (previous.components?.find(p=>p.id===c.id)?.status !== c.status) history.unshift({at:timestamp,component:c.id,status:c.status});
   return {generatedAt:timestamp,staleAfterSeconds:config.staleAfterSeconds,status,components,history:history.slice(0,100)};
 }
+

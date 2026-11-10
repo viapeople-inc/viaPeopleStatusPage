@@ -29,3 +29,7 @@ The production live feed uses account `069066994138`, region `us-east-1`, stacks
 * The status site reads the public endpoint from `live-feed.json` at build time, with `STATUS_FEED_URL` taking precedence. For rollback, clear the endpoint in `live-feed.json` and republish before stopping the AWS collector.
 
 CloudFormation templates manage only these status resources. Existing viaResources ECS services and Enterprise App infrastructure are unchanged.
+
+## Public performance policy
+
+The low-volume `slow_request_10s` monitor remains an internal Datadog alert and does not independently degrade the public status. The collector identifies it from its query without exposing that query. Other configured monitors continue to apply, including the broader slow-request threshold, Java lock contention and exhausted web threads. Unavailable monitor reads remain unknown, and an empty public monitor set never implies health. Recovery still requires two healthy observations.

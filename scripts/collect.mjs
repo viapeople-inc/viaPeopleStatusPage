@@ -22,7 +22,9 @@ export async function collect(settings, previous = {}, fetcher = fetch, now = ()
       });
       if (!response.ok) return {id, overall_state: 'Unknown'};
       const body = await response.json();
-      return {id, overall_state: body.overall_state, deleted: body.deleted, draft_status: body.draft_status};
+      return {id, overall_state: body.overall_state, deleted: body.deleted, draft_status: body.draft_status,
+        // Low-volume long requests remain an internal alert, not public impact proof.
+        internalOnly: typeof body.query === 'string' && body.query.includes('@event_type:slow_request_10s')};
     } catch { return {id, overall_state: 'Unknown'}; }
   }));
   return evaluate(settings.config, monitors, previous, now());
