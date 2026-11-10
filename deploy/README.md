@@ -15,3 +15,17 @@ Run one Node.js 22 service independently of the Enterprise App and DB5, preferab
 Rollback: clear `STATUS_FEED_URL` and publish once to return to scheduled static snapshots. Do not stop the live service before switching readers. Static snapshots retain the fifteen-minute expiry; scheduled GitHub Actions cannot guarantee real-time collection.
 
 Host and endpoint deployment are prerequisites. Merging this PR alone does not enable one-minute collection. Check the next scheduled static publication separately after any workflow changes.
+
+## AWS deployment in viaResources
+
+The production live feed uses account `069066994138`, region `us-east-1`, stacks `viapeople-status-bootstrap` and `viapeople-status-live`.
+
+* EventBridge Scheduler invokes Lambda every minute. Reserved concurrency is one; duplicate invocations less than 45 seconds apart are skipped.
+* Lambda uses the same `collect.mjs` and `health.mjs` logic as the static publisher. Run `node scripts/build-aws-runtime.mjs` after modifying either source, then run `node --test tests/*.test.mjs` before deploying the template.
+* Only sanitized snapshots are written to a private encrypted S3 bucket. CloudFront OAC can read only `status.json`; caching is disabled. Raw monitor responses and credentials never enter the public bucket.
+* The bootstrap role accepts GitHub OIDC only from this repository's main branch and can write only the dedicated secret. `Provision live feed credentials` transfers existing GitHub credentials without logging them. After rotating them, rerun that workflow and redeploy the collector so CloudFormation refreshes dynamic references.
+* CloudWatch retains collector logs for seven days; failed async invocations and schedule delivery failures go to an encrypted SQS dead letter queue. Check Lambda errors, schedule failures, queue depth and snapshot age when troubleshooting.
+* Snapshot TTL is 180 seconds; failed Datadog reads become unknown. Recovery still requires two distinct healthy samples. The monitor's own evaluation window adds to detection time.
+* The status site reads the public endpoint from `live-feed.json` at build time, with `STATUS_FEED_URL` taking precedence. For rollback, clear the endpoint in `live-feed.json` and republish before stopping the AWS collector.
+
+CloudFormation templates manage only these status resources. Existing viaResources ECS services and Enterprise App infrastructure are unchanged.

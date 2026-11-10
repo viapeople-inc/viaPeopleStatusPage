@@ -2,7 +2,7 @@ name: Publish monitored status
 on:
   push:
     branches: [main]
-    paths: ["docs/**", "scripts/**", "status-config.json", ".github/workflows/status.yml"]
+    paths: ["docs/**", "scripts/**", "status-config.json", "live-feed.json", ".github/workflows/status.yml"]
   schedule:
     - cron: '3-58/5 * * * *'
   workflow_dispatch:
